@@ -5,6 +5,7 @@ const cors = require("cors");
 const app = express();
 app.use(express.json());
 app.use(cors());
+app.use(express('static')); // to deploy frontend to heroku
 
 // step7 & and step8 use of morgan middleware
 morgan.token("body", (req, res) => JSON.stringify(res.req.body));
