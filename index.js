@@ -4,6 +4,8 @@ const cors = require("cors");
 
 const app = express();
 app.use(express.json());
+
+// ex 3.9 to 3.11 required following cors and static('build') done.
 app.use(cors());
 app.use(express.static("build")); // to deploy frontend to heroku
 
