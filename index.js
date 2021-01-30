@@ -19,18 +19,18 @@ app.use(
   )
 );
 
-let persons = [
-  {
-    id: 1,
-    name: "Arto Hellas",
-    number: "040-123456",
-  },
-  {
-    id: 2,
-    name: "Ada Lovelace",
-    number: "12-43-234345",
-  },
-];
+const errorHandler = (error, request, response, next) => {
+  console.log(error.message);
+
+  if (error.name === "CastError") {
+    return response.status(400).send({
+      error: "malformed id",
+    });
+  }
+
+  next(error);
+};
+app.use(errorHandler);
 
 app.get("/", (request, response) => {
   response.send("welcome");
@@ -44,34 +44,41 @@ app.get("/api/persons", (request, response) => {
 });
 
 //step2
-const info = `<div>Phonebook has info for ${persons.length}</div>${Date()}`;
+const info = `<div>Phonebook has info for ${
+  Persons.find({}).length
+}</div>${Date()}`;
 app.get("/info", (request, response) => {
   response.send(info);
 });
 
 //step3
-app.get("/api/persons/:id", (request, response) => {
-  Persons.findById(request.params.id).then((person) => {
-    response.json(person);
-  });
+app.get("/api/persons/:id", (request, response, next) => {
+  Persons.findById(request.params.id)
+    .then((person) => {
+      if (person) response.json(person);
+      else response.status(404).end();
+    })
+    .catch((error) => next(error));
 });
 
 //step4
-app.delete("/api/persons/:id", (request, response) => {
-  const id = Number(request.params.id);
-
-  const toDelete = persons.find((person) => person.id === id);
-  persons = persons.filter((person) => person.id !== id);
-  response.json({ deleted: toDelete });
+app.delete("/api/persons/:id", (request, response, next) => {
+  Persons.findByIdAndRemove(request.params.id)
+    .then((personToDelete) => {
+      console.log("deleted", personToDelete);
+      response.status(204).end();
+    })
+    .catch((error) => {
+      next(error);
+      console.log(error);
+    });
 });
 
 //step5
 app.post("/api/persons", (request, response) => {
-  // const length = Math.max(...persons.map((person) => person.id));
-
-  // const maxId = persons.length > 0 ? Math.floor(Math.random() * 1000) : 0;
-
   const body = request.body;
+  const person = Persons.find({}).then((res) => res.data);
+  console.log(person);
   // if there is no name in body send error
   if (!body.name || !body.number)
     return response.status(400).json({
@@ -83,17 +90,36 @@ app.post("/api/persons", (request, response) => {
     number: body.number,
   });
 
-  const nameExists =
-    persons.find((per) => per.name === personToAdd.name) || false;
-  if (nameExists.name === personToAdd.name)
-    return response.status(400).json({
-      existing: nameExists,
-    });
-  // persons = persons.concat(personToAdd);
-  // response.json({ added: personToAdd });
-  personToAdd.save().then((savedPerson) => {
-    response.json(savedPerson);
+  Persons.find({}).then((persons) => {
+    const nameExists =
+      persons.find((per) => per.name === personToAdd.name) || false;
+
+    if (nameExists.name === personToAdd.name)
+      return response.status(400).json({
+        existing: nameExists,
+      });
+    else {
+      personToAdd.save().then((savedPerson) => {
+        response.json(savedPerson);
+      });
+    }
   });
+});
+
+// ex 3.17
+app.put("/api/persons/:id", (request, response, next) => {
+  const body = request.body;
+
+  const person = {
+    name: body.name,
+    number: body.number,
+  };
+
+  Persons.findByIdAndUpdate(request.params.id, person, { new: true })
+    .then((updatedPerson) => {
+      response.json(updatedPerson);
+    })
+    .catch((error) => next(error));
 });
 
 const port = process.env.PORT;
