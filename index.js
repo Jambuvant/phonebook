@@ -19,19 +19,6 @@ app.use(
   )
 );
 
-const errorHandler = (error, request, response, next) => {
-  console.log(error.message);
-
-  if (error.name === "CastError") {
-    return response.status(400).send({
-      error: "malformed id",
-    });
-  }
-
-  next(error);
-};
-app.use(errorHandler);
-
 app.get("/", (request, response) => {
   response.send("welcome");
 });
@@ -75,10 +62,8 @@ app.delete("/api/persons/:id", (request, response, next) => {
 });
 
 //step5
-app.post("/api/persons", (request, response) => {
+app.post("/api/persons", (request, response, next) => {
   const body = request.body;
-  const person = Persons.find({}).then((res) => res.data);
-  console.log(person);
   // if there is no name in body send error
   if (!body.name || !body.number)
     return response.status(400).json({
@@ -90,20 +75,25 @@ app.post("/api/persons", (request, response) => {
     number: body.number,
   });
 
-  Persons.find({}).then((persons) => {
-    const nameExists =
-      persons.find((per) => per.name === personToAdd.name) || false;
+  Persons.find({})
+    .then((persons) => {
+      const nameExists =
+        persons.find((per) => per.name === personToAdd.name) || false;
 
-    if (nameExists.name === personToAdd.name)
-      return response.status(400).json({
-        existing: nameExists,
-      });
-    else {
-      personToAdd.save().then((savedPerson) => {
-        response.json(savedPerson);
-      });
-    }
-  });
+      if (nameExists.name === personToAdd.name)
+        return response.status(400).json({
+          existing: nameExists,
+        });
+      else {
+        personToAdd
+          .save()
+          .then((savedPerson) => {
+            response.json(savedPerson);
+          })
+          .catch((error) => next(error));
+      }
+    })
+    .catch((error) => next(error));
 });
 
 // ex 3.17
@@ -121,6 +111,22 @@ app.put("/api/persons/:id", (request, response, next) => {
     })
     .catch((error) => next(error));
 });
+
+const errorHandler = (error, request, response, next) => {
+  console.log(error.message);
+
+  if (error.name === "CastError") {
+    return response.status(400).send({
+      error: "malformed id",
+    });
+  } else if (error.name === "ValidationError") {
+    return response.status(400).send({
+      error: error.message,
+    });
+  }
+  next(error);
+};
+app.use(errorHandler);
 
 const port = process.env.PORT;
 app.listen(port, () => {
